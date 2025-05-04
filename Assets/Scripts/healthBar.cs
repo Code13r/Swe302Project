@@ -1,39 +1,60 @@
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections;
-using System.Collections.Generic;
-
 
 public class healthBar : MonoBehaviour
 {
-    public Slider healthSlider;
-    public Slider easeHealthSlider;
     public float maxHealth = 100f;
     public float health;
+
+    public Slider healthSlider;         // assign the green bar
+    public Slider easeHealthSlider;     // assign the red delay bar
+    public GameObject healthBarUI;      // assign the entire canvas
+
     private float lerpSpeed = 0.05f;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    private bool isVisible = false;
+
     void Start()
     {
         health = maxHealth;
+
+        if (healthSlider != null) healthSlider.maxValue = maxHealth;
+        if (easeHealthSlider != null) easeHealthSlider.maxValue = maxHealth;
+
+        if (healthBarUI != null)
+        {
+            healthBarUI.SetActive(false);  // ✅ Start hidden
+        }
     }
 
-    // Update is called once per frame
     void Update()
     {
-        if(healthSlider.value != health){
-            healthSlider.value = health;
-        }
-        
-        if(Input.GetKeyDown(KeyCode.Space)){
-            takeDamage(10);
+        if (!isVisible || healthSlider == null || easeHealthSlider == null)
+            return;
+
+        healthSlider.value = health;
+        easeHealthSlider.value = Mathf.Lerp(easeHealthSlider.value, health, lerpSpeed);
+    }
+
+    public void TakeDamage(float damage)
+    {
+        if (!isVisible && healthBarUI != null)
+        {
+            Debug.Log("Health bar enabled");
+            healthBarUI.SetActive(true);   // ✅ Show on first hit
+            isVisible = true;
         }
 
-        if(healthSlider.value != easeHealthSlider.value){
-            easeHealthSlider.value = Mathf.Lerp(easeHealthSlider.value, health, lerpSpeed);
+        health -= damage;
+
+        if (health <= 0)
+        {
+            Die();
         }
     }
 
-    void takeDamage(float damage){
-        health -= damage;
+    void Die()
+    {
+        Debug.Log("Enemy died.");
+        Destroy(gameObject);  // ✅ Destroys the whole enemy (and the UI with it)
     }
 }
