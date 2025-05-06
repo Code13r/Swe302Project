@@ -1,36 +1,35 @@
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-
 public class TargetDetectionControl : MonoBehaviour
 {
-int currentTargetIndex = 0;
+    int currentTargetIndex = 0;
 
-public void CycleToNextTarget()
-{
-    if (allTargetsInScene.Count == 0) return;
-
-    // Get all valid enemies within detection range
-    List<Transform> validTargets = new List<Transform>();
-    foreach (Transform enemy in allTargetsInScene)
+    public void CycleToNextTarget()
     {
-        if (Vector3.Distance(transform.position, enemy.position) <= detectionRange)
+        if (allTargetsInScene.Count == 0) return;
+
+        List<Transform> validTargets = new List<Transform>();
+        foreach (Transform enemy in allTargetsInScene)
         {
-            validTargets.Add(enemy);
+            if (Vector3.Distance(transform.position, enemy.position) <= detectionRange)
+            {
+                validTargets.Add(enemy);
+            }
         }
+
+        if (validTargets.Count == 0) return;
+
+        currentTargetIndex++;
+        if (currentTargetIndex >= validTargets.Count)
+        {
+            currentTargetIndex = 0;
+        }
+
+        playerControl.SetTarget(validTargets[currentTargetIndex]);
     }
-
-    if (validTargets.Count == 0) return;
-
-    currentTargetIndex++;
-    if (currentTargetIndex >= validTargets.Count)
-    {
-        currentTargetIndex = 0;
-    }
-
-    playerControl.ChangeTarget(validTargets[currentTargetIndex]);
-}
 
     public static TargetDetectionControl instance;
 
@@ -39,7 +38,7 @@ public void CycleToNextTarget()
 
     [Header("Scene")]
     public List<Transform> allTargetsInScene = new List<Transform>();
-    
+
     [Space]
     [Header("Target Detection")]
     public LayerMask whatIsEnemy;
@@ -61,12 +60,12 @@ public void CycleToNextTarget()
         instance = this;
     }
 
-    // Start is called before the first frame update
     void Start()
     {
         PopulateTargetInScene();
         StartCoroutine(RunEveryXms());
     }
+
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.G))
@@ -80,17 +79,13 @@ public void CycleToNextTarget()
 
     private void PopulateTargetInScene()
     {
-        // Find all active GameObjects in the scene
         EnemyBase[] allGameObjects = FindObjectsOfType<EnemyBase>();
 
-        // Convert the array to a list
         List<EnemyBase> gameObjectList = new List<EnemyBase>(allGameObjects);
 
-        // Output the number of GameObjects found
         if (debug)
             Debug.Log("Number of targets found: " + gameObjectList.Count);
 
-        // Optionally, iterate over the list and do something with each GameObject
         foreach (EnemyBase obj in gameObjectList)
         {
             allTargetsInScene.Add(obj.transform);
@@ -101,12 +96,10 @@ public void CycleToNextTarget()
     {
         while (true)
         {
-            yield return new WaitForSeconds(.1f); // Wait for 'x' milliseconds
+            yield return new WaitForSeconds(.1f);
             GetEnemyInInputDirection();
         }
     }
-
-    #region Get Enemy In Input Direction
 
     public void GetEnemyInInputDirection()
     {
@@ -120,55 +113,43 @@ public void CycleToNextTarget()
                 inputDirection.y = 0;
                 inputDirection.Normalize();
 
-
                 Transform closestEnemy = GetClosestEnemyInDirection(inputDirection);
 
                 if (closestEnemy != null && (Vector3.Distance(transform.position, closestEnemy.position)) <= detectionRange)
                 {
-                    playerControl.ChangeTarget(closestEnemy);
-                    // Do something with the closest enemy in the input direction
-                    Debug.Log("Closest enemy in direction: " + closestEnemy.name);
+                    playerControl.SetTarget(closestEnemy);
+                    if (debug)
+                        Debug.Log("Closest enemy in direction: " + closestEnemy.name);
                 }
             }
-
         }
     }
-    
-Transform GetClosestEnemyInDirection(Vector3 inputDirection)
-{
-    Transform closestEnemy = null;
-    float maxDotProduct = dotProductThreshold; // Start with the threshold value
 
-    // Iterate backwards to allow safe removal of destroyed enemies
-    for (int i = allTargetsInScene.Count - 1; i >= 0; i--)
+    Transform GetClosestEnemyInDirection(Vector3 inputDirection)
     {
-        Transform enemy = allTargetsInScene[i];
+        Transform closestEnemy = null;
+        float maxDotProduct = dotProductThreshold;
 
-        // Skip and remove destroyed enemies
-        if (enemy == null)
+        for (int i = allTargetsInScene.Count - 1; i >= 0; i--)
         {
-            allTargetsInScene.RemoveAt(i);
-            continue;
+            Transform enemy = allTargetsInScene[i];
+
+            if (enemy == null)
+            {
+                allTargetsInScene.RemoveAt(i);
+                continue;
+            }
+
+            Vector3 enemyDirection = (enemy.position - transform.position).normalized;
+            float dotProduct = Vector3.Dot(inputDirection, enemyDirection);
+
+            if (dotProduct > maxDotProduct)
+            {
+                maxDotProduct = dotProduct;
+                closestEnemy = enemy;
+            }
         }
 
-        Vector3 enemyDirection = (enemy.position - transform.position).normalized;
-        float dotProduct = Vector3.Dot(inputDirection, enemyDirection);
-
-        if (dotProduct > maxDotProduct)
-        {
-            maxDotProduct = dotProduct;
-            closestEnemy = enemy;
-        }
+        return closestEnemy;
     }
-
-    return closestEnemy;
-}
-
-
-    #endregion
-
-    #region Unused Code/ Might Delete Later
-
-
-    #endregion
 }

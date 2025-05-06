@@ -3,42 +3,40 @@ using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
 using StarterAssets;
+
 public class PlayerControl : MonoBehaviour
 {
-    [Space]
     [Header("Components")]
     [SerializeField] private Animator anim;
     [SerializeField] private ThirdPersonController thirdPersonController;
-   // [SerializeField] private GameControl gameControl;
- 
-    [Space]
+
     [Header("Combat")]
     public Transform target;
     [SerializeField] private Transform attackPos;
-    [Tooltip("Offset Stoping Distance")][SerializeField] private float quickAttackDeltaDistance;
-    [Tooltip("Offset Stoping Distance")][SerializeField] private float heavyAttackDeltaDistance;
-    [SerializeField] private float knockbackForce = 10f; 
-    [SerializeField] private float airknockbackForce = 10f; 
+    [SerializeField] private float quickAttackDeltaDistance = 0.3f;
+    [SerializeField] private float heavyAttackDeltaDistance = 0.1f;
+    [SerializeField] private float knockbackForce = 10f;
+    [SerializeField] private float airknockbackForce = 10f;
     [SerializeField] private float attackRange = 1f;
-    [SerializeField] private float reachTime = 0.3f;
+    [SerializeField] private float reachTime = 0.2f;
     [SerializeField] private LayerMask enemyLayer;
+
     bool isAttacking = false;
 
-    [Space]
     [Header("Debug")]
     [SerializeField] private bool debug;
 
-    // Start is called before the first frame update
-  void Start()
-{
-    // TEMP: Auto-assign first target in the scene
-    if (TargetDetectionControl.instance.allTargetsInScene.Count > 0)
-    {
-        ChangeTarget(TargetDetectionControl.instance.allTargetsInScene[0]);
-    }
-}
+    private EnemyBase oldTarget;
+    private EnemyBase currentTarget;
 
-    // Update is called once per frame
+    void Start()
+    {
+        if (TargetDetectionControl.instance.allTargetsInScene.Count > 0)
+        {
+            SetTarget(TargetDetectionControl.instance.allTargetsInScene[0]);
+        }
+    }
+
     void Update()
     {
         HandleInput();
@@ -46,118 +44,78 @@ public class PlayerControl : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if(target == null)
-        {
-            return;
-        }
+        if (target == null) return;
 
-        if((Vector3.Distance(transform.position, target.position) >= TargetDetectionControl.instance.detectionRange))
+        if ((Vector3.Distance(transform.position, target.position) >= TargetDetectionControl.instance.detectionRange))
         {
-            NoTarget();
+            ClearTarget();
         }
     }
 
     void HandleInput()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.J))
         {
             Attack(0);
         }
 
-        if (Input.GetMouseButtonDown(1))
+        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.K))
         {
             Attack(1);
         }
-
-        if (Input.GetKeyDown(KeyCode.J))
-        {
-            Attack(0);
-        }
-
-        if (Input.GetKeyDown(KeyCode.K))
-        {
-            Attack(1);
-        }
-
     }
-
-    #region Attack, PerformAttack, Reset Attack, Change Target
-  
 
     public void Attack(int attackState)
     {
-        if (isAttacking)
-        {
-            return;
-        }
+        if (isAttacking) return;
 
         thirdPersonController.canMove = false;
         TargetDetectionControl.instance.canChangeTarget = false;
         RandomAttackAnim(attackState);
-       
     }
 
     private void RandomAttackAnim(int attackState)
     {
-        
-
-        switch (attackState) 
+        switch (attackState)
         {
-            case 0: //Quick Attack
-
-                QuickAttack();
-                break;
-
-            case 1:
-                HeavyAttack();
-                break;
-
+            case 0: QuickAttack(); break;
+            case 1: HeavyAttack(); break;
         }
-
-
-       
     }
 
-   void QuickAttack()
-{
-    int attackIndex = Random.Range(1, 4);
-    if (debug)
+    void QuickAttack()
     {
-        Debug.Log(attackIndex + " attack index");
+        int attackIndex = Random.Range(1, 4);
+        if (debug) Debug.Log(attackIndex + " attack index");
+
+        string animName = attackIndex switch
+        {
+            1 => "punch",
+            2 => "kick",
+            3 => "mmakick",
+            _ => "punch"
+        };
+
+        PlayAttack(animName);
     }
 
-    string animName = "";
-
-    switch (attackIndex)
+    void HeavyAttack()
     {
-        case 1: animName = "punch"; break;
-        case 2: animName = "kick"; break;
-        case 3: animName = "mmakick"; break;
+        int attackIndex = Random.Range(1, 3);
+        if (debug) Debug.Log(attackIndex + " attack index");
+
+        string animName = attackIndex == 1 ? "heavyAttack1" : "heavyAttack2";
+        PlayAttack(animName);
     }
 
-    Vector3 attackDirection = target != null ? target.position : transform.position + transform.forward * 1.5f;
-    MoveTowardsTarget(attackDirection, quickAttackDeltaDistance, animName);
-    isAttacking = true;
-}
-
-   void HeavyAttack()
-{
-    int attackIndex = Random.Range(1, 3);
-    if (debug)
+    void PlayAttack(string animName)
     {
-        Debug.Log(attackIndex + " attack index");
+        anim.SetBool(animName, true);
+        FaceTarget();
+        isAttacking = true;
     }
 
-    string animName = attackIndex == 1 ? "heavyAttack1" : "heavyAttack2";
-
-    Vector3 attackDirection = target != null ? target.position : transform.position + transform.forward * 1.5f;
-    FaceThis(attackDirection);
-    anim.SetBool(animName, true);
-    isAttacking = true;
-}
-
-
-    public void ResetAttack() // Animation Event ---- for Reset Attack
+    public void ResetAttack()
     {
         anim.SetBool("punch", false);
         anim.SetBool("kick", false);
@@ -169,132 +127,75 @@ public class PlayerControl : MonoBehaviour
         isAttacking = false;
     }
 
- public void PerformAttack()
-{
-    // Detect enemies in attack range
-    Collider[] hitEnemies = Physics.OverlapSphere(attackPos.position, attackRange, enemyLayer);
-
-    foreach (Collider enemy in hitEnemies)
+    public void PerformAttack()
     {
-        // Knockback (optional)
-        Rigidbody enemyRb = enemy.GetComponent<Rigidbody>();
-        if (enemyRb != null)
-        {
-            Vector3 knockbackDirection = enemy.transform.position - transform.position;
-            knockbackDirection.y = airknockbackForce;
-            enemyRb.AddForce(knockbackDirection.normalized * knockbackForce, ForceMode.Impulse);
-        }
+        Collider[] hitEnemies = Physics.OverlapSphere(attackPos.position, attackRange, enemyLayer);
 
-        // Spawn hit effect (optional visual)
-        EnemyBase enemyBase = enemy.GetComponent<EnemyBase>();
-        if (enemyBase != null)
+        foreach (Collider enemy in hitEnemies)
         {
-            enemyBase.SpawnHitVfx(enemy.transform.position);
-        }
+            Rigidbody enemyRb = enemy.GetComponent<Rigidbody>();
+            if (enemyRb != null)
+            {
+                Vector3 knockbackDirection = (enemy.transform.position - transform.position).normalized;
+                knockbackDirection.y = airknockbackForce;
+                enemyRb.AddForce(knockbackDirection * knockbackForce, ForceMode.Impulse);
+            }
 
-        // Apply damage using health bar script
-        healthBar enemyHealth = enemy.GetComponentInChildren<healthBar>();
-        if (enemyHealth != null)
-        {
-            enemyHealth.TakeDamage(20f); // Adjust damage as needed
+            EnemyBase enemyBase = enemy.GetComponent<EnemyBase>();
+            if (enemyBase != null)
+            {
+                enemyBase.SpawnHitVfx(enemy.transform.position);
+            }
+
+            healthBar enemyHealth = enemy.GetComponentInChildren<healthBar>();
+            if (enemyHealth != null)
+            {
+                enemyHealth.TakeDamage(20f);
+            }
         }
     }
-}
 
-
-
-    private EnemyBase oldTarget;
-    private EnemyBase currentTarget;
-    public void ChangeTarget(Transform target_)
+    public void SetTarget(Transform newTarget)
     {
-        
-        if(target != null)
+        if (target != null && oldTarget != null)
         {
-            //oldTarget = target_.GetComponent<EnemyBase>(); //clear old target
             oldTarget.ActiveTarget(false);
         }
-       
-        target = target_;
 
-        oldTarget = target_.GetComponent<EnemyBase>(); //set current target
-        currentTarget = target_.GetComponent<EnemyBase>();
+        target = newTarget;
+        currentTarget = newTarget.GetComponent<EnemyBase>();
+        oldTarget = currentTarget;
         currentTarget.ActiveTarget(true);
-
     }
 
-    private void NoTarget() // When player gets out of range of current Target
+    public void ClearTarget()
     {
-        currentTarget.ActiveTarget(false);
+        if (currentTarget != null)
+        {
+            currentTarget.ActiveTarget(false);
+        }
+
+        target = null;
         currentTarget = null;
         oldTarget = null;
-        target = null;
     }
 
-    #endregion
-
-
-    #region MoveTowards, Target Offset and FaceThis
-    public void MoveTowardsTarget(Vector3 target_, float deltaDistance, string animationName_)
+    void FaceTarget()
     {
-
-        PerformAttackAnimation(animationName_);
-        FaceThis(target_);
-        Vector3 finalPos = TargetOffset(target_, deltaDistance);
-        finalPos.y = 0;
-        transform.DOMove(finalPos, reachTime);
-
+        if (target == null) return;
+        Vector3 direction = (target.position - transform.position);
+        direction.y = 0;
+        if (direction == Vector3.zero) return;
+        Quaternion lookRotation = Quaternion.LookRotation(direction);
+        transform.DORotateQuaternion(lookRotation, 0.2f);
     }
-
-    public void GetClose()
-{
-    Vector3 getCloseTarget;
-
-    if (target != null)
-    {
-        getCloseTarget = target.position;
-    }
-    else if (oldTarget != null)
-    {
-        getCloseTarget = oldTarget.transform.position;
-    }
-    else
-    {
-        // Fallback: attack forward if no targets exist
-        getCloseTarget = transform.position + transform.forward * 1.5f;
-    }
-
-    FaceThis(getCloseTarget);
-    Vector3 finalPos = TargetOffset(getCloseTarget, 1.4f);
-    finalPos.y = 0;
-    transform.DOMove(finalPos, 0.2f);
-}
-
-
-    void PerformAttackAnimation(string animationName_)
-    {
-        anim.SetBool(animationName_, true);
-    }
-
-    public Vector3 TargetOffset(Vector3 target, float deltaDistance)
-    {
-        Vector3 position;
-        position = target;
-        return Vector3.MoveTowards(position, transform.position, deltaDistance);
-    }
-
-    public void FaceThis(Vector3 target)
-    {
-        Vector3 target_ = new Vector3(target.x, target.y, target.z);
-        Quaternion lookAtRotation = Quaternion.LookRotation(target_ - transform.position);
-        lookAtRotation.x = 0;
-        lookAtRotation.z = 0;
-        transform.DOLocalRotateQuaternion(lookAtRotation, 0.2f);
-    }
-    #endregion
 
     void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(attackPos.position, attackRange); // Visualize the attack range
+        if (attackPos != null)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(attackPos.position, attackRange);
+        }
     }
 }

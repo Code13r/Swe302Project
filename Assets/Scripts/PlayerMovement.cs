@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public Camera camera;
+    public Camera mainCamera;
     public CharacterController characterController;
 
     public float walkSpeed = 2f;
@@ -39,7 +39,7 @@ public class PlayerMovement : MonoBehaviour
         {
             if (findObj.name == "PlayerCamera")
             {
-                camera = findObj.GetComponent<Camera>();
+                mainCamera = findObj.GetComponent<Camera>();
             }
         }
 
@@ -69,7 +69,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void Move()
     {
-        RaycastHit hit;
+        //RaycastHit hit;
         actualHorizontalSpeed = ((new Vector3(transform.position.x, 0f, transform.position.z) - new Vector3(previousPosition.x, 0f, previousPosition.z)).magnitude) / Time.deltaTime;
         actualSpeed = ((transform.position - previousPosition).magnitude) / Time.deltaTime;
         previousPosition = transform.position;
@@ -179,7 +179,7 @@ public class PlayerMovement : MonoBehaviour
         xRotation -= inputY;
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);
 
-        camera.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        GetComponent<Camera>().transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
         transform.Rotate(Vector3.up * inputX);
     }
 
@@ -210,7 +210,7 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        Vector3 v3T = camera.transform.localPosition;
+        Vector3 v3T = GetComponent<Camera>().transform.localPosition;
 
         if (waveslice != 0)
         {
@@ -225,7 +225,7 @@ public class PlayerMovement : MonoBehaviour
             v3T.y = midpoint;
         }
 
-        camera.transform.localPosition = v3T;
+        GetComponent<Camera>().transform.localPosition = v3T;
     }
 
     void LockCursor()
