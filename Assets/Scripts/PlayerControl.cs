@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
 using StarterAssets;
-
 public class PlayerControl : MonoBehaviour
 {
+    public BossHealth bossHealth;
+
     [Header("Components")]
     [SerializeField] private Animator anim;
     [SerializeField] private ThirdPersonController thirdPersonController;
@@ -40,7 +41,12 @@ public class PlayerControl : MonoBehaviour
     void Update()
     {
         HandleInput();
+         if (Input.GetKeyDown(KeyCode.T))
+        {
+            bossHealth.TakeDamage(50); 
+        }
     }
+
 
     private void FixedUpdate()
     {
